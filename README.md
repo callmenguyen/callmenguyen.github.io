@@ -1,45 +1,48 @@
-# Nhat Nguyen
+# Nhat Nguyen — portfolio
 
-**AI-focused Software Engineering Student**
+**AI-focused Software Engineer**: building practical AI systems with strong backend foundations,
+while exploring methods to advance model capability and reasoning.
 
-AI-focused software engineering student with hands-on experience in computer vision, LLM system integration, and AI agent development. Interested in building practical AI systems with robust backend foundations and studying techniques for improving AI capabilities.
+**[🌐 callmenguyen.github.io](https://callmenguyen.github.io)** · [GitHub](https://github.com/callmenguyen)
 
-**[🌐 Visit my Homepage](https://antialberteinstein.github.io)**
-![Portfolio Preview](res/preview.png)
+A static site for GitHub Pages: plain HTML, CSS and JavaScript modules, with no build step and no dependencies.
 
----
+## What's on the page
 
-## Skills & Knowledge
+- **Fourier name**: on load, epicycles draw "Nhat Nguyen" once, then hand off to the heading. Click the name to replay it.
+- **Terminal** styled like kitty + tmux + fish in Tokyo Night. Commands: `help`, `whoami`, `about`, `skills`, `now`, `contact`, `fourier [n | --grow]`, `clear`.
+- **Two panes on desktop**: name, terminal and section nav on the left; About and Skills scroll on the right.
+- `Ctrl`/`Cmd` + `K` command palette, dark/light theme, scroll-in animations, and a "Currently building" line from the GitHub API.
+- Respects `prefers-reduced-motion`; works with keyboard and screen readers.
 
-*   **Programming Languages:** [Python](/cs-notes/python/), [C/C++](/cs-notes/cpp/), [Julia](/cs-notes/julia/)
-*   **AI & Machine Learning:** [Computer Vision](/cs-notes/computer-vision/), [Generative AI](/cs-notes/generative-ai/), [LLMs](/cs-notes/llms/)
-*   **Other:** [IoT](/cs-notes/iot/)
+## Run locally
 
-*(Click on the links above to view my notes and research on these topics).*
+ES modules need a web server (opening `index.html` as a file won't work):
 
----
+```sh
+python3 -m http.server 8000
+# then open http://127.0.0.1:8000
+```
 
-## Featured Projects
+## Tests
 
-### 1. [Hybrid AI Agent](https://github.com/antialberteinstein/HybridAIAgent)
-This project enhances SLM performance in multi-action decision tasks using a cosine similarity–based validation layer. The "VAR referees" mechanism provides semantic signals that improve final decision accuracy.
+```sh
+python3 -m unittest discover tests   # static checks
+node tests/browser_check.mjs         # real-browser checks (Node 22+, Chromium); add --shots <dir> for screenshots
+```
 
-### 2. [ChatToExplore](https://github.com/antialberteinstein/ChatToExplore)
-A web application using Java servlet with local LLM inference (llama.cpp) and async job queue that allows users to explore the Vietnamese's figures through a chatbot.
+## Where to change things
 
-### 3. [IoT Face Recognition System](https://github.com/antialberteinstein/PBL5)
-Attendance system using InsightFace embeddings and adaptive online classifier exposed via Flask API.
-
----
+| What | Where |
+| --- | --- |
+| Terminal commands, intro timing, Fourier circles, palette items, GitHub user | `scripts/config.js` |
+| Colors for both themes, terminal glass | top of `styles/main.css` |
+| The drawn name | `res/name-path.svg` (one `<path>`; viewBox = the heading's line box) |
 
 ## Contact
 
-Feel free to reach out for collaborations or just a friendly hello!
+- **Email:** [nhatnguyen.blitz@gmail.com](mailto:nhatnguyen.blitz@gmail.com)
+- **GitHub:** [github.com/callmenguyen](https://github.com/callmenguyen)
+- **Facebook:** [fb.com/call.me.nnguyen](https://fb.com/call.me.nnguyen)
 
-*   **Email:** [nhatnguyen.blitz@gmail.com](mailto:nhatnguyen.blitz@gmail.com)
-*   **Facebook:** [fb.com/call.me.nnguyen](https://fb.com/call.me.nnguyen)
-*   **GitHub:** [github.com/antialberteinstein](https://github.com/antialberteinstein)
-*   **LinkedIn:** [linkedin.com](https://www.linkedin.com)
-
----
-© 2026 Nhat Nguyen. All rights reserved.
+MIT License © 2024–2026 Nhat Nguyen
