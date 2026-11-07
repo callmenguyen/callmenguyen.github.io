@@ -5,6 +5,8 @@ while exploring methods to advance model capability and reasoning.
 
 **[🌐 callmenguyen.github.io](https://callmenguyen.github.io)** · [GitHub](https://github.com/callmenguyen)
 
+![Portfolio preview: Fourier-drawn name, Tokyo Night terminal and About section](res/preview.jpg)
+
 A static site for GitHub Pages: plain HTML, CSS and JavaScript modules, with no build step and no dependencies.
 
 ## What's on the page

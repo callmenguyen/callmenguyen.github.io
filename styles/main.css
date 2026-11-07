@@ -1038,6 +1038,15 @@ footer {
     border-top: 1px solid var(--glass-border);
 }
 
+.copyright a {
+    color: inherit;
+    text-underline-offset: 3px;
+}
+
+.copyright a:hover {
+    color: var(--primary-color);
+}
+
 /* Two panes on desktop: sticky left (name, terminal, nav), right pane scrolls */
 @media (min-width: 1024px) {
     :root {
