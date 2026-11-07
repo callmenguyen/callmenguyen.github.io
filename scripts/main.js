@@ -1,217 +1,228 @@
-const typingText = [
-    "I'm a third-year student",
-    "I am passionate about AI development",
-    "I am obsessed with pursuit of True AI"
-];
-let count = 0;
-let index = 0;
-let currentText = "";
-let letter = "";
+import { INTRO, AUTO_SCROLL, GITHUB, PALETTE_ITEMS, PROMPT, GREETING, TMUX, COMMANDS } from './config.js';
+import { createFourier } from './intro.js';
+import { createTerminal } from './terminal.js';
+import { createPalette } from './palette.js';
+import { initTheme } from './theme.js';
+import { initRevealFallback, initTilt } from './fx.js';
+import { loadCurrentlyBuilding, renderCurrentlyBuilding } from './github.js';
 
-// Typing Effect
-(function type() {
-    if (count === typingText.length) {
-        count = 0;
-    }
-    currentText = typingText[count];
-    letter = currentText.slice(0, ++index);
+const html = document.documentElement;
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = sel => document.querySelector(sel);
 
-    const typingElement = document.getElementById("typing-element");
-    if (typingElement) {
-        typingElement.textContent = letter;
-    }
-
-    if (letter.length === currentText.length) {
-        count++;
-        index = 0;
-        setTimeout(type, 2000);
-    } else {
-        setTimeout(type, 100);
-    }
-})();
-
-// Mobile Navigation
-const burger = document.querySelector('.burger');
-const nav = document.querySelector('.nav-links');
+/* ── Navigation ─────────────────────────────────────────────── */
+const burger = $('.burger');
+const nav = $('.nav-links');
 const navLinks = document.querySelectorAll('.nav-links li');
 
-burger.addEventListener('click', () => {
-    // Toggle Nav
-    nav.classList.toggle('nav-active');
-
-    // Animate Links
+function setMenu(open) {
+    nav.classList.toggle('nav-active', open);
+    burger.classList.toggle('toggle', open);
+    burger.setAttribute('aria-expanded', String(open));
+    burger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
     navLinks.forEach((link, index) => {
-        if (link.style.animation) {
-            link.style.animation = '';
-        } else {
-            link.style.animation = `navLinkFade 0.5s ease forwards ${index / 7 + 0.3}s`;
-        }
+        link.style.animation = open ? `navLinkFade 0.5s ease forwards ${index / 7 + 0.3}s` : '';
     });
+}
+burger.addEventListener('click', () => setMenu(!nav.classList.contains('nav-active')));
 
-    // Burger Animation
-    burger.classList.toggle('toggle');
+function jumpTo(selector) {
+    const target = document.querySelector(selector);
+    if (!target) return;
+    target.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth' });
+    if (target.tabIndex >= -1 && target.hasAttribute('tabindex')) target.focus({ preventScroll: true });
+}
+
+// Delegated so links printed later by the terminal work too.
+document.addEventListener('click', e => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || a.getAttribute('href') === '#') return;
+    e.preventDefault();
+    jumpTo(a.getAttribute('href'));
+    if (nav.classList.contains('nav-active')) setMenu(false);
 });
 
-// Smooth Scroll for Anchor Links
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-
-        document.querySelector(this.getAttribute('href')).scrollIntoView({
-            behavior: 'smooth'
-        });
-
-        // Close mobile menu if open
-        if (nav.classList.contains('nav-active')) {
-            nav.classList.remove('nav-active');
-            navLinks.forEach((link) => {
-                link.style.animation = '';
-            });
-            burger.classList.remove('toggle');
-        }
-    });
-});
-
-// Header Background on Scroll
 window.addEventListener('scroll', () => {
-    const header = document.querySelector('header');
-    header.classList.toggle('scrolled', window.scrollY > 50);
-});
+    $('header').classList.toggle('scrolled', window.scrollY > 50);
+}, { passive: true });
 
-/* ── News Panel ─────────────────────────────────────────────── */
-const NEWS_SOURCES = {
-    technologyreview: { rss: 'https://www.technologyreview.com/feed/' },
-    huggingface:      { rss: 'https://huggingface.co/blog/feed.xml' },
-    towardsdatascience: { rss: 'https://machinelearningmastery.com/blog/feed/' },
+/* ── Background video (static poster under reduced motion) ──── */
+const video = $('.bg-video');
+if (!reducedMotion) {
+    const play = () => video.play().catch(() => { /* autoplay blocked: poster stays */ });
+    play();
+    document.addEventListener('visibilitychange', () => (document.hidden ? video.pause() : play()));
+}
+
+/* ── Live "Currently building" ──────────────────────────────── */
+const nowPromise = loadCurrentlyBuilding(GITHUB);
+nowPromise.then(data => renderCurrentlyBuilding(data, { link: $('#now-link'), desc: $('#now-desc') }));
+
+/* ── Theme, palette, micro-interactions ─────────────────────── */
+const theme = initTheme($('#theme-toggle'), { reducedMotion });
+/* ── Fourier name: drawn once on load, replayed on click or by the `fourier` command ── */
+const hero = $('#hero');
+const fourier = reducedMotion ? null : createFourier({
+    canvas: $('#name-canvas'),
+    textEl: $('#hero-name'),
+    config: INTRO,
+    onPause: paused => (paused ? (html.dataset.introPaused = '') : delete html.dataset.introPaused),
+});
+fourier?.ready.catch(err => console.warn('Fourier drawing unavailable:', err));
+
+/** Replay: hide the heading while drawing, show it again as the outline fades.
+ *  A newer replay cancels the older one; only the latest may bring the heading back. */
+let replayId = 0;
+async function replay(pass) {
+    const id = ++replayId;
+    hero.classList.add('is-redrawing');
+    try {
+        await pass();
+    } catch (err) {
+        console.warn('Fourier replay failed:', err);
+    } finally {
+        if (id === replayId) hero.classList.remove('is-redrawing');
+    }
+}
+const fourierApi = fourier && {
+    draw: opts => replay(() => fourier.draw(opts)),
+    grow: () => replay(() => fourier.grow()),
+    clamp: fourier.clamp,
+    maxCircles: fourier.maxCircles,
+    defaultCircles: INTRO.circles,
 };
+$('#name-replay').addEventListener('click', () => { if (fourierApi && introDone) fourierApi.draw(); });
 
-const MAX_ITEMS = 8;
-
-/* CORS proxy list — tried in order until one succeeds.
-   allorigins /get returns JSON { contents: "<xml>..." } to avoid binary encoding issues. */
-const CORS_PROXIES = [
-    async url => {
-        const res = await fetch(
-            `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-            { signal: AbortSignal.timeout(7000) }
-        );
-        if (!res.ok) return null;
-        const json = await res.json();
-        return json.contents ?? null;
-    },
-    async url => {
-        const res = await fetch(
-            `https://corsproxy.io/?${encodeURIComponent(url)}`,
-            { signal: AbortSignal.timeout(7000) }
-        );
-        if (!res.ok) return null;
-        return res.text();
-    },
-    async url => {
-        const res = await fetch(
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-            { signal: AbortSignal.timeout(7000) }
-        );
-        if (!res.ok) return null;
-        return res.text();
-    },
-];
-
-/** Render skeleton placeholder rows while loading */
-function renderSkeleton(container) {
-    container.innerHTML = Array.from({ length: 4 }, () => `
-        <div class="news-skeleton">
-            <div class="news-skeleton-line"></div>
-            <div class="news-skeleton-line short"></div>
-        </div>
-    `).join('');
-}
-
-/** Format a date string to a readable short date */
-function formatDate(dateStr) {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    return isNaN(d) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-/** Extract <item> or <entry> nodes from a parsed RSS/Atom XML document */
-function parseRssXml(xmlText) {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(xmlText, 'text/xml');
-
-    /* Support both RSS 2.0 (<item>) and Atom (<entry>) */
-    const items = [...doc.querySelectorAll('item, entry')].slice(0, MAX_ITEMS);
-
-    return items.map(el => {
-        const getText = tag => el.querySelector(tag)?.textContent?.trim() ?? '';
-        const link = el.querySelector('link')?.getAttribute('href')
-            || el.querySelector('link')?.textContent?.trim()
-            || '';
-        return {
-            title: getText('title'),
-            link,
-            pubDate: getText('pubDate') || getText('published') || getText('updated'),
-        };
-    }).filter(i => i.title && i.link);
-}
-
-/** Try each CORS proxy in sequence; return items array on first success */
-async function fetchRssItems(rssUrl) {
-    for (const proxy of CORS_PROXIES) {
-        try {
-            const text = await proxy(rssUrl);
-            if (!text) continue;
-            const items = parseRssXml(text);
-            if (items.length) return items;
-        } catch (_) {
-            /* try next proxy */
-        }
-    }
-    return [];
-}
-
-/** Fetch and render news for a given source key */
-async function loadNews(sourceKey) {
-    const container = document.getElementById(`news-${sourceKey}`);
-    if (!container || container.dataset.loaded) return;
-
-    renderSkeleton(container);
-
-    const items = await fetchRssItems(NEWS_SOURCES[sourceKey].rss);
-
-    if (!items.length) {
-        container.innerHTML = `
-            <div class="news-item">
-                <span class="news-item-title" style="color:rgba(255,255,255,0.4)">
-                    Could not load news. Try again later.
-                </span>
-            </div>`;
-        return;
-    }
-
-    container.innerHTML = items.map(item => `
-        <a class="news-item" href="${item.link}" target="_blank" rel="noopener noreferrer">
-            <span class="news-item-title">${item.title}</span>
-            <span class="news-item-date">${formatDate(item.pubDate)}</span>
-        </a>
-    `).join('');
-    container.dataset.loaded = 'true';
-}
-
-/** Tab switching */
-document.querySelectorAll('.news-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-        const source = tab.dataset.source;
-
-        document.querySelectorAll('.news-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-
-        document.querySelectorAll('.news-list').forEach(list => list.classList.add('hidden'));
-        document.getElementById(`news-${source}`).classList.remove('hidden');
-
-        loadNews(source);
-    });
+const terminal = createTerminal({
+    root: $('#terminal'), commands: COMMANDS, prompt: PROMPT, greeting: GREETING,
+    getNow: () => nowPromise, extraContext: { fourier: fourierApi },
 });
 
-/* Load the default (first) tab on page ready */
-loadNews('technologyreview');
+/* tmux status bar: session / window / host from config, live clock in the visitor's time */
+$('#tmux-session').textContent = TMUX.session;
+$('#tmux-window').textContent = TMUX.window;
+$('#tmux-host').textContent = TMUX.host;
+function tickClock() {
+    const d = new Date();
+    const date = d.toLocaleDateString('en-CA'); // YYYY-MM-DD, like tmux %Y-%m-%d
+    const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: !TMUX.clock24h });
+    $('#tmux-clock').textContent = `${date}  ${time}`;
+}
+tickClock();
+setInterval(tickClock, 15_000);
+
+const palette = createPalette({
+    dialog: $('#palette'),
+    openButton: $('#palette-btn'),
+    items: PALETTE_ITEMS,
+    onSelect(item, returnFocus) {
+        if (item.target) {
+            jumpTo(item.target);
+        } else if (item.action === 'terminal') {
+            jumpTo('#hero');
+            terminal.input.focus({ preventScroll: true });
+        } else if (item.action === 'theme') {
+            theme.toggle();
+            returnFocus?.focus({ preventScroll: true });
+        }
+    },
+});
+
+initRevealFallback({ reducedMotion });
+
+/* Left-pane section nav: mark the section currently in view */
+const sectionLinks = [...document.querySelectorAll('.section-nav a')];
+const spy = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        sectionLinks.forEach(a => (a.getAttribute('href') === `#${entry.target.id}`
+            ? a.setAttribute('aria-current', 'true')
+            : a.removeAttribute('aria-current')));
+    });
+}, { rootMargin: '-45% 0px -50% 0px' });
+sectionLinks.forEach(a => { const el = document.querySelector(a.getAttribute('href')); if (el) spy.observe(el); });
+initTilt(document.querySelectorAll('.skill-group'), { reducedMotion });
+
+/* ── Intro: Fourier name → heading → terminal types `whoami` ── */
+const SKIP_EVENTS = ['pointerdown', 'wheel', 'touchstart', 'keydown'];
+let introDone = false;
+
+function finishIntro() {
+    if (introDone) return;
+    introDone = true;
+    fourier?.finish(); // cut the first drawing short: heading shows right away
+    SKIP_EVENTS.forEach(evt => window.removeEventListener(evt, finishIntro, true));
+    terminal.showIntroFinal(INTRO.command);
+    if (html.dataset.intro) html.dataset.intro = 'done';
+    startAutoScroll();
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function playIntro() {
+    if (!fourier) return finishIntro(); // reduced motion: static heading, no canvas
+    // Deep link to a section (e.g. /#skills): go straight there.
+    if (html.dataset.intro === 'done' || location.hash.length > 1) return finishIntro();
+    // A reload would otherwise restore the old scroll position, leaving the drawing off-screen (paused).
+    history.scrollRestoration = 'manual';
+    window.scrollTo(0, 0);
+    SKIP_EVENTS.forEach(evt => window.addEventListener(evt, finishIntro, { capture: true, passive: true }));
+    await document.fonts.ready; // measure the heading with its real font
+    if (introDone) return;
+
+    html.dataset.intro = 'drawing';
+    const result = await fourier.draw().catch(() => 'error');
+    if (introDone) return;
+    if (result !== 'complete') return finishIntro();
+
+    html.dataset.intro = 'settling';
+    await sleep(INTRO.settleMs);
+    if (introDone) return;
+
+    html.dataset.intro = 'typing';
+    terminal.typeIntro(INTRO.command, { charMs: INTRO.typeCharMs, outputDelayMs: INTRO.outputDelayMs }, finishIntro);
+}
+playIntro();
+
+/* ── Auto-scroll after idle (never under reduced motion) ────── */
+function startAutoScroll() {
+    if (reducedMotion) return;
+    let frame = null;
+    let idleTimer = null;
+
+    const stop = () => { cancelAnimationFrame(frame); frame = null; };
+    // Don't move the page while someone is typing in the terminal or using the palette.
+    const busy = () => palette.isOpen || terminal.root.contains(document.activeElement);
+
+    function run() {
+        if (busy()) return resetIdle();
+        let pos = window.scrollY;
+        let last = performance.now();
+        const step = () => {
+            const now = performance.now();
+            const maxY = document.documentElement.scrollHeight - window.innerHeight;
+            pos += Math.min(now - last, 100) / 1000 * AUTO_SCROLL.speed;
+            last = now;
+            if (pos >= maxY) {
+                window.scrollTo(0, maxY);
+                stop();
+                return;
+            }
+            window.scrollTo(0, pos);
+            frame = requestAnimationFrame(step);
+        };
+        frame = requestAnimationFrame(step);
+    }
+
+    function resetIdle() {
+        stop();
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(run, AUTO_SCROLL.idleMs);
+    }
+
+    ['wheel', 'touchstart', 'keydown', 'mousedown'].forEach(evt =>
+        window.addEventListener(evt, resetIdle, { passive: true })
+    );
+    document.addEventListener('visibilitychange', () => { if (document.hidden) resetIdle(); });
+    resetIdle();
+}
